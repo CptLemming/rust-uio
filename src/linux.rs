@@ -223,6 +223,22 @@ impl UioDevice {
         self.read_file(filename)
     }
 
+    /// The offset of a given mapping.
+    ///
+    /// # Arguments
+    ///  * mapping: The given index of the mapping (i.e., 1 for /sys/class/uio/uioX/maps/map1)
+    pub fn map_offset(&self, mapping: usize) -> Result<usize, UioError> {
+        let filename = format!(
+            "/sys/class/uio/uio{}/maps/map{}/offset",
+            self.uio_num, mapping
+        );
+        let buffer = self.read_file(filename)?;
+        match usize::from_str_radix(&buffer[2..], 16) {
+            Ok(v) => Ok(v),
+            Err(e) => Err(UioError::from(e)),
+        }
+    }
+
     /// Return a list of all possible memory mappings.
     #[deprecated(since = "0.3.0", note = "Use get_mapping_info() instead")]
     pub fn get_map_info(&mut self) -> Result<Vec<String>, UioError> {
@@ -268,12 +284,14 @@ impl UioDevice {
             };
 
             let addr = self.map_addr(index)?;
+            let offset = self.map_offset(index)?;
             let name = self.map_name(index)?;
             let len = self.map_size(index)?;
 
             map.push(MappingInfo {
                 index,
                 addr,
+                offset,
                 len,
                 name,
             });
@@ -346,6 +364,9 @@ pub struct MappingInfo {
 
     /// Physical address of the Mapping
     pub addr: usize,
+
+    /// Offset of the Mapping
+    pub offset: usize,
 
     /// Length in bytes of the Mapping region
     pub len: usize,
